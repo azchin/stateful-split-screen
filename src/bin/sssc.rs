@@ -5,7 +5,7 @@ use stateful_split_screen::data::*;
 use std::os::unix::net::UnixDatagram;
 use clap::{Arg, App};
 
-fn main_with_results() -> Result<(), GenericError> {
+fn main() -> Result<(), GenericError> {
     let matches = App::new("Stateful Split Screen Client")
         .arg(Arg::with_name("command")
              .takes_value(true)
@@ -24,10 +24,4 @@ fn main_with_results() -> Result<(), GenericError> {
     }
 
     Ok(())
-}
-
-fn main() {
-    if let Err(e) = main_with_results() {
-        eprintln!("{}", e);
-    }
 }

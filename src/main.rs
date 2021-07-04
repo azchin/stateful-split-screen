@@ -102,7 +102,7 @@ fn do_single_command(base: &xcb::base::Connection,
     Ok(())
 }
 
-fn main_with_results() -> Result<(), GenericError> {
+fn main() -> Result<(), GenericError> {
     let mut window_dimensions: HashMap<xcb::xproto::Window, Dimensions> = HashMap::new();
     let (base_connection, ewmh_connection, default_screen) = setup_connections()?;
     let (work_x, work_y, work_width, work_height) = get_work_area(&ewmh_connection, default_screen)?;
@@ -126,10 +126,4 @@ fn main_with_results() -> Result<(), GenericError> {
 
     // remove_socket_file()?;
     // Ok(())
-}
-
-fn main() {
-    if let Err(e) = main_with_results() {
-        eprintln!("{}", e);
-    }
 }
