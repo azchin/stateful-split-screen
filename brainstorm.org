@@ -1,18 +1,15 @@
 * Concept
 Create functions that resize X11 windows to cover half of the screen while keeping track of its original windowed dimensions.
 This allows us to restore the 'split-screen' window back to its original floating form.
-
 * Considerations
 - When splitting a maximized window, we must unmaximize and retrieve the dimensions: look into where the windowed dimensions are stored.
   - /Ammendment/: maximized windows are handled solely by the window manager, so this tool won't handle that logic.
 - Parsing the command line arguments will maintain the order of the commands
 - Exclude docks
-
 * Architecture
 We'll implement a *client server model* by using *unix datagram sockets* in a predetermined cache location.
 The sockets will be connectionless to reduce the overhead for single-command messages.
 Data will be formatted using D-Bus's binary format.
-
 * Niceties
 - Check for existing server process
 - Cleanup sockets after termination or interrupt
@@ -33,7 +30,6 @@ Data will be formatted using D-Bus's binary format.
 - NET_WORKAREA
 - NET_MOVERESIZE_WINDOW
 - WM_NORMAL_HINTS
-
 * Links
 - https://docs.rs/xcb/0.9.0/xcb/xproto/fn.configure_window.html
 - https://docs.rs/xcb/0.9.0/xcb/xproto/fn.get_geometry.html
@@ -49,14 +45,12 @@ Data will be formatted using D-Bus's binary format.
 - https://specifications.freedesktop.org/wm-spec/wm-spec-latest.html#idm46291029720208
 - https://stackoverflow.com/questions/65540910/x11-net-frame-extents-window-property-not-consistent-return-with-xcb
 - https://unix.stackexchange.com/questions/157613/get-the-full-window-dimensions-including-decorations-in-uniti
-
 * Crates and libraries
 - signal-hook
 - std::os::unix::net::UnixDatagram
 - zvariant
 - clap
 - x11::xlib::XWindowAttributes
-
 * Steps
 ** DONE Get window geometry
 Currently we're *getting* window geometry for the guest app's position ignoring decorations.
@@ -67,7 +61,7 @@ We could calculate window's true x and y positions by doing =x_true = x_rel - 2 
 Calculating dimensions looks like =height_true = top_extent + bottom_extent + height_geo=.
 The parent window is *work-area-height* pixels offset from the root window.
 ** DONE Resize window to some fixed size
-** +Get screen attributes+
+** AXED Get screen attributes
 ** DONE Get desktop work area
 ** DONE Resize window to split-screen left and right
 ** DONE Cleanup up error handling
@@ -87,11 +81,11 @@ struct Message {
 #+end_src
 ** DONE Restore window size
 ** DONE Create command line options
-** TODO Handle program termination
+** PROG Handle program termination
+Use Tokio and signal-hook for async signal handling
 ** DONE Experiment with maximized behaviour
 I can't visually modify the window dimensions of an Openbox maximized window
 ** TODO Other niceties?
-
 * C code to reference
   #+begin_src c
 // https://gist.github.com/borneq/abd430d491a449c08a25
@@ -190,3 +184,4 @@ default_screen = screen_of_display (c, screen_default_nbr);
 /* default_screen contains now the default root window, or a NULL window if no screen is found */
 
   #+end_src
+  

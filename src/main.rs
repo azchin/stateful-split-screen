@@ -124,8 +124,8 @@ fn main_with_results() -> Result<(), GenericError> {
         }
     }
 
-    remove_socket_file()?;
-    Ok(())
+    // remove_socket_file()?;
+    // Ok(())
 }
 
 fn main() {

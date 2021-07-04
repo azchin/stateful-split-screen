@@ -18,7 +18,7 @@ pub mod errors {
 
     impl fmt::Display for GenericError {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "ERROR {} failed", self.details)
+            write!(f, "ERROR: {}", self.details)
         }
     }
 }
