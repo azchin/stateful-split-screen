@@ -1,0 +1,192 @@
+* Concept
+Create functions that resize X11 windows to cover half of the screen while keeping track of its original windowed dimensions.
+This allows us to restore the 'split-screen' window back to its original floating form.
+
+* Considerations
+- When splitting a maximized window, we must unmaximize and retrieve the dimensions: look into where the windowed dimensions are stored.
+  - /Ammendment/: maximized windows are handled solely by the window manager, so this tool won't handle that logic.
+- Parsing the command line arguments will maintain the order of the commands
+- Exclude docks
+
+* Architecture
+We'll implement a *client server model* by using *unix datagram sockets* in a predetermined cache location.
+The sockets will be connectionless to reduce the overhead for single-command messages.
+Data will be formatted using D-Bus's binary format.
+
+* Niceties
+- Check for existing server process
+- Cleanup sockets after termination or interrupt
+- Select window based on id, window name, window title, etc.
+- Move window
+- Unix socket permissions
+  - https://doc.rust-lang.org/std/os/unix/fs/trait.PermissionsExt.html
+- Multiple monitors (xlib's 'screen_number')
+  - For now use XDefaultScreen(display) to get screen_number
+  - XOpenDisplay(display_name) - use std::ptr::null or ':0'
+  - https://unix.stackexchange.com/questions/573121/get-current-screen-dimensions-via-xlib-using-c
+  - DisplayWidth() and DisplayHeight()
+  - x11::xlib::XDefaultScreenOfDisplay (struct Screen has pub width and height fields)
+  - x11::xlib::XDisplayWidth
+- Update desktop dimensions option (multi monitor option)
+  - Retrieve multiple work areas
+- NET_WM_WINDOW_TYPE = DOCK
+- NET_WORKAREA
+- NET_MOVERESIZE_WINDOW
+- WM_NORMAL_HINTS
+
+* Links
+- https://docs.rs/xcb/0.9.0/xcb/xproto/fn.configure_window.html
+- https://docs.rs/xcb/0.9.0/xcb/xproto/fn.get_geometry.html
+- https://docs.rs/xcb-util/0.3.0/xcb_util/ewmh/fn.get_desktop_geometry.html
+- https://specifications.freedesktop.org/wm-spec/wm-spec-latest.html
+- https://docs.rs/xcb-util/0.3.0/xcb_util/ffi/ewmh/fn.xcb_ewmh_get_workarea_reply.html
+- https://docs.rs/xcb-util/0.3.0/xcb_util/ewmh/fn.get_current_desktop.html
+- https://docs.rs/xcb-util/0.3.0/xcb_util/ewmh/fn.get_work_area.html
+- https://xcb.freedesktop.org/windowcontextandmanipulation/
+- https://gist.github.com/borneq/abd430d491a449c08a25
+- https://docs.rs/xcb/0.9.0/xcb/xproto/fn.change_property.html
+- https://docs.rs/xcb-util/0.3.0/xcb_util/ewmh/fn.get_wm_state.html
+- https://specifications.freedesktop.org/wm-spec/wm-spec-latest.html#idm46291029720208
+- https://stackoverflow.com/questions/65540910/x11-net-frame-extents-window-property-not-consistent-return-with-xcb
+- https://unix.stackexchange.com/questions/157613/get-the-full-window-dimensions-including-decorations-in-uniti
+
+* Crates and libraries
+- signal-hook
+- std::os::unix::net::UnixDatagram
+- zvariant
+- clap
+- x11::xlib::XWindowAttributes
+
+* Steps
+** DONE Get window geometry
+Currently we're *getting* window geometry for the guest app's position ignoring decorations.
+The issue is that *resizing* windows takes decorations into account.
+For some reason, window's *y relative to parent* is 2 times *left extent*.
+Window's *x relative to parent* is 2 time either top or bottom extent.
+We could calculate window's true x and y positions by doing =x_true = x_rel - 2 * top_extent=.
+Calculating dimensions looks like =height_true = top_extent + bottom_extent + height_geo=.
+The parent window is *work-area-height* pixels offset from the root window.
+** DONE Resize window to some fixed size
+** +Get screen attributes+
+** DONE Get desktop work area
+** DONE Resize window to split-screen left and right
+** DONE Cleanup up error handling
+** DONE Store window size
+** DONE Establish unix socket connection and send string
+** DONE Use D-Bus binary format for data
+#+begin_src rust
+enum Command {
+    Window,
+    SplitLeft,
+    SplitRight,
+}
+
+struct Message {
+    command: Command,
+}
+#+end_src
+** DONE Restore window size
+** DONE Create command line options
+** TODO Handle program termination
+** DONE Experiment with maximized behaviour
+I can't visually modify the window dimensions of an Openbox maximized window
+** TODO Other niceties?
+
+* C code to reference
+  #+begin_src c
+// https://gist.github.com/borneq/abd430d491a449c08a25
+xcb_intern_atom_cookie_t cookie = xcb_intern_atom ( connection, 0, strlen ( "_MOTIF_WM_HINTS" ), "_MOTIF_WM_HINTS" );
+xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply ( connection, cookie, NULL );
+MotifHints hints;
+hints.flags = 2;
+hints.functions = 0;
+hints.decorations = 0;
+hints.input_mode = 0;
+hints.status = 0;
+
+xcb_change_property_checked ( connection,
+                              XCB_PROP_MODE_REPLACE,
+                              window,
+                              reply->atom,
+                              XCB_ATOM_INTEGER,
+                              32,
+                              5,
+                              &hints );
+
+// https://github.com/baskerville/xdo/blob/master/xdo.c
+void setup(void)
+{
+    dpy = xcb_connect(NULL, &default_screen);
+    if (xcb_connection_has_error(dpy)) {
+        err("Can't open display.\n");
+    }
+    xcb_screen_t *screen = xcb_setup_roots_iterator(xcb_get_setup(dpy)).data;
+    if (screen == NULL) {
+        err("Can't acquire screen.\n");
+    }
+    root = screen->root;
+    ewmh = malloc(sizeof(xcb_ewmh_connection_t));
+    if (xcb_ewmh_init_atoms_replies(ewmh, xcb_ewmh_init_atoms(dpy, ewmh), NULL) == 0) {
+        err("Can't initialize EWMH atoms.\n");
+    }
+}
+
+void get_active_window(xcb_window_t *win)
+{
+    if (xcb_ewmh_get_active_window_reply(ewmh, xcb_ewmh_get_active_window(ewmh, default_screen), win, NULL) != 1) {
+        err("Can't determine the active window.\n");
+    }
+}
+
+void window_move(xcb_window_t win)
+{
+    xcb_get_geometry_reply_t *geo = xcb_get_geometry_reply(dpy, xcb_get_geometry(dpy, win), NULL);
+    if (geo == NULL) {
+        return;
+    }
+    uint32_t values[2] = {geo->x, geo->y};
+    int i = 0;
+    SETGEOM(x)
+        SETGEOM(y)
+        xcb_configure_window(dpy, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
+}
+
+void window_resize(xcb_window_t win)
+{
+    xcb_get_geometry_reply_t *geo = xcb_get_geometry_reply(dpy, xcb_get_geometry(dpy, win), NULL);
+    if (geo == NULL) {
+        return;
+    }
+    uint32_t values[2] = {geo->width, geo->height};
+    int i = 0;
+    SETGEOM(width)
+        SETGEOM(height)
+        xcb_configure_window(dpy, win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
+}
+
+// https://www.x.org/releases/X11R7.5/doc/libxcb/tutorial/#DefaultScreenOfDisplay
+xcb_screen_t *screen_of_display (xcb_connection_t *c,
+                                 int               screen)
+{
+    xcb_screen_iterator_t iter;
+
+    iter = xcb_setup_roots_iterator (xcb_get_setup (c));
+    for (; iter.rem; --screen, xcb_screen_next (&iter))
+        if (screen == 0)
+            return iter.data;
+
+    return NULL;
+}
+
+xcb_connection_t *c;
+int               screen_default_nbr;
+xcb_screen_t     *default_screen;  /* the returned default screen */
+
+/* you pass the name of the display you want to xcb_connect_t */
+
+c = xcb_connect (display_name, &screen_default_nbr);
+default_screen = screen_of_display (c, screen_default_nbr);
+
+/* default_screen contains now the default root window, or a NULL window if no screen is found */
+
+  #+end_src

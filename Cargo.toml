@@ -1,0 +1,15 @@
+[package]
+name = "stateful-split-screen"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+xcb = "0.9.0"
+xcb-util = {version = "0.3.0", features = ["ewmh", "icccm"]}
+dirs = "3.0.2"
+zvariant = "2.7.0"
+byteorder = "1.4.3"
+clap = "2.33.3"
+# x11 = "2.18.2"
