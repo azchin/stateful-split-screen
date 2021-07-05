@@ -13,10 +13,15 @@ Data will be formatted using D-Bus's binary format.
 * Niceties
 - Check for existing server process
 - Cleanup sockets after termination or interrupt
-- Select window based on id, window name, window title, etc.
 - Move window
+- Maintain an indefinite amount of user defined custom states
+  - Use a state stack
+- Periodically clean up hash table
+- Option to reset XCB connection
+- Select window based on id, window name, window title, etc.
 - Unix socket permissions
   - https://doc.rust-lang.org/std/os/unix/fs/trait.PermissionsExt.html
+* AXED Xlib notes
 - Multiple monitors (xlib's 'screen_number')
   - For now use XDefaultScreen(display) to get screen_number
   - XOpenDisplay(display_name) - use std::ptr::null or ':0'
@@ -85,6 +90,7 @@ struct Message {
 Use Tokio and signal-hook for async signal handling
 ** DONE Experiment with maximized behaviour
 I can't visually modify the window dimensions of an Openbox maximized window
+** DONE Reset XCB connection option
 ** TODO Other niceties?
 * C code to reference
   #+begin_src c

@@ -10,7 +10,7 @@ fn main() -> Result<(), GenericError> {
         .arg(Arg::with_name("command")
              .takes_value(true)
              .required(true)
-             .possible_values(&[RESTORE, SPLITLEFT, SPLITRIGHT])
+             .possible_values(&[RESTORE, SPLITLEFT, SPLITRIGHT, RESTART])
         ).get_matches();
     let command = matches.value_of("command").unwrap();
     let socket = match UnixDatagram::unbound() {
@@ -18,8 +18,9 @@ fn main() -> Result<(), GenericError> {
         Err(_) => return Err(GenericError::new("unbound socket creation")),
     };
     let server_path = get_socket_file()?;
-    let message = encode_data(command)?;
-    if let Err(_) = socket.send_to(&message, server_path.as_path()) {
+    let message = Message::new(command);
+    let message_enc = encode_data(message)?;
+    if let Err(_) = socket.send_to(&message_enc, server_path.as_path()) {
         return Err(GenericError::new("send message to socket"));
     }
 

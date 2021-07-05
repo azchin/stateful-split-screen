@@ -4,12 +4,12 @@ pub mod errors {
 
     #[derive(Debug)]
     pub struct GenericError {
-        details: &'static str,
+        details: String,
     }
 
     impl GenericError {
-        pub fn new(details: &'static str) -> GenericError {
-            GenericError{details}
+        pub fn new(details: &str) -> GenericError {
+            GenericError{details: details.to_string()}
         }
     }
 
@@ -27,23 +27,42 @@ pub mod commands {
     pub const RESTORE: &str = "restore";
     pub const SPLITLEFT: &str = "splitleft";
     pub const SPLITRIGHT: &str = "splitright";
+    pub const RESTART: &str = "restart";
 }
 
 pub mod data {
     use byteorder::LE;
+    use serde::{Serialize, Deserialize};
+    use zvariant_derive::Type;
     use zvariant::{from_slice, to_bytes};
     use zvariant::EncodingContext as Context;
     use crate::errors::GenericError;
 
-    pub fn encode_data(message: &str) -> Result<Vec<u8>, GenericError> {
+    #[derive(Serialize, Deserialize, Type, Debug)]
+    pub struct Message {
+        command: String,
+    }
+
+    impl Message {
+        pub fn new(command: &str) -> Message {
+            Message{
+                command: command.to_string(),
+            }
+        }
+        pub fn command(&self) -> String {
+            self.command.clone()
+        }
+    }
+
+    pub fn encode_data(message: Message) -> Result<Vec<u8>, GenericError> {
         let ctxt = Context::<LE>::new_gvariant(0);
-        match to_bytes(ctxt, message) {
+        match to_bytes(ctxt, &message) {
             Ok(res) => Ok(res),
             Err(_) => return Err(GenericError::new("gvariant encoding")),
         }
     }
 
-    pub fn decode_data(binary: &[u8]) -> Result<&str, GenericError> {
+    pub fn decode_data(binary: &[u8]) -> Result<Message, GenericError> {
         let ctxt = Context::<LE>::new_gvariant(0);
         match from_slice(&binary, ctxt) {
             Ok(res) => Ok(res),
@@ -106,6 +125,12 @@ pub mod xcb {
     use xcb_util::ewmh;
     use xcb::base;
     use xcb::xproto;
+    
+    pub struct XCBConnections {
+        pub base: base::Connection,
+        pub ewmh: ewmh::Connection,
+        pub screen: i32,
+    }
     
     pub fn get_root_window(base: &base::Connection, screen: i32) -> Result<xproto::Window, GenericError> {
         let setup = base.get_setup();
@@ -216,7 +241,7 @@ pub mod xcb {
         }
     }
 
-    pub fn setup_connections() -> Result<(base::Connection, ewmh::Connection, i32), GenericError> {
+    pub fn setup_connections() -> Result<XCBConnections, GenericError> {
         let base_connection_res = base::Connection::connect(None);
         let (base_connection, default_screen);
         match base_connection_res {
@@ -242,6 +267,6 @@ pub mod xcb {
             },
             _ => return Err(GenericError::new("XCB connection #2")),
         }
-        Ok((base_connection, ewmh_connection, default_screen))
+        Ok(XCBConnections{base: base_connection, ewmh: ewmh_connection, screen: default_screen})
     }
 }
