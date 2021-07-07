@@ -14,6 +14,8 @@ Data will be formatted using D-Bus's binary format.
 - Check for existing server process
 - Cleanup sockets after termination or interrupt
 - Move window
+  - Support percentages
+  - Round float up if it'll reach the end of desktop
 - Maintain an indefinite amount of user defined custom states
   - Use a state stack
 - Periodically clean up hash table

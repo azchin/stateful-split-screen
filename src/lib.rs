@@ -24,39 +24,50 @@ pub mod errors {
 }
 
 pub mod commands {
+    pub const COMMAND: &str = "command";
     pub const RESTORE: &str = "restore";
     pub const SPLITLEFT: &str = "splitleft";
     pub const SPLITRIGHT: &str = "splitright";
     pub const RESTART: &str = "restart";
+    pub const QUIT: &str = "quit";
 }
 
 pub mod data {
+    use std::collections::HashMap;
     use byteorder::LE;
-    use serde::{Serialize, Deserialize};
-    use zvariant_derive::Type;
     use zvariant::{from_slice, to_bytes};
     use zvariant::EncodingContext as Context;
     use crate::errors::GenericError;
 
-    #[derive(Serialize, Deserialize, Type, Debug)]
     pub struct Message {
-        command: String,
+        map: HashMap<String, String>,
     }
 
     impl Message {
-        pub fn new(command: &str) -> Message {
-            Message{
-                command: command.to_string(),
+        pub fn new() -> Message {
+            let map = HashMap::new();
+            Message{map}
+        }
+        pub fn get(&self, key: &str) -> Option<&str> {
+            match self.map.get(key) {
+                Some(res) => Some(res.as_str()),
+                None => None,
             }
         }
-        pub fn command(&self) -> String {
-            self.command.clone()
+        pub fn insert(&mut self, key: &str, value: &str) {
+            self.map.insert(key.to_string(), value.to_string());
+        }
+        fn from_expose(map: HashMap<String, String>) -> Message {
+            Message{map}
+        }
+        fn expose(&mut self) -> HashMap<String, String> {
+            std::mem::replace(&mut self.map, HashMap::new())
         }
     }
 
-    pub fn encode_data(message: Message) -> Result<Vec<u8>, GenericError> {
+    pub fn encode_data(mut message: Message) -> Result<Vec<u8>, GenericError> {
         let ctxt = Context::<LE>::new_gvariant(0);
-        match to_bytes(ctxt, &message) {
+        match to_bytes(ctxt, &message.expose()) {
             Ok(res) => Ok(res),
             Err(_) => return Err(GenericError::new("gvariant encoding")),
         }
@@ -65,7 +76,7 @@ pub mod data {
     pub fn decode_data(binary: &[u8]) -> Result<Message, GenericError> {
         let ctxt = Context::<LE>::new_gvariant(0);
         match from_slice(&binary, ctxt) {
-            Ok(res) => Ok(res),
+            Ok(res) => Ok(Message::from_expose(res)),
             Err(_) => return Err(GenericError::new("gvariant decoding")),
         }
     }

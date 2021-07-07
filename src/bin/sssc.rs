@@ -3,22 +3,31 @@ use stateful_split_screen::socket::*;
 use stateful_split_screen::commands::*;
 use stateful_split_screen::data::*;
 use std::os::unix::net::UnixDatagram;
-use clap::{Arg, App};
+use clap::{AppSettings, App, SubCommand};
 
 fn main() -> Result<(), GenericError> {
     let matches = App::new("Stateful Split Screen Client")
-        .arg(Arg::with_name("command")
-             .takes_value(true)
-             .required(true)
-             .possible_values(&[RESTORE, SPLITLEFT, SPLITRIGHT, RESTART])
-        ).get_matches();
-    let command = matches.value_of("command").unwrap();
+        .setting(AppSettings::ArgRequiredElseHelp)
+        .subcommand(SubCommand::with_name(RESTORE)
+                    .help("Restores window to original dimensions"))
+        .subcommand(SubCommand::with_name(SPLITLEFT)
+                    .help("Resize the window to cover the left half of the desktop"))
+        .subcommand(SubCommand::with_name(SPLITRIGHT)
+                    .help("Resize the window to cover the right half of the desktop"))
+        .subcommand(SubCommand::with_name(RESTART)
+                    .help("Restart the server"))
+        .subcommand(SubCommand::with_name(QUIT)
+                    .help("Shutdown the server"))
+        .get_matches();
+    let commands_strings = [RESTORE, SPLITLEFT, SPLITRIGHT, RESTART, QUIT];
+    let command = commands_strings.iter().find(|cmd| matches.subcommand_matches(cmd).is_some()).unwrap();
     let socket = match UnixDatagram::unbound() {
         Ok(sock) => sock,
         Err(_) => return Err(GenericError::new("unbound socket creation")),
     };
     let server_path = get_socket_file()?;
-    let message = Message::new(command);
+    let mut message = Message::new();
+    message.insert(COMMAND, command);
     let message_enc = encode_data(message)?;
     if let Err(_) = socket.send_to(&message_enc, server_path.as_path()) {
         return Err(GenericError::new("send message to socket"));

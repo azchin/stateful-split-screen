@@ -184,11 +184,9 @@ dependencies = [
  "byteorder",
  "clap",
  "dirs",
- "serde",
  "xcb",
  "xcb-util",
  "zvariant",
- "zvariant_derive",
 ]
 
 [[package]]

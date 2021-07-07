@@ -28,9 +28,12 @@ struct Properties {
 
 fn do_single_command(connections: &XCBConnections,
                      window_properties: &mut HashMap<xcb::xproto::Window, Properties>,
-                     message: Message)
+                     message: Message,)
                      -> Result<(), GenericError>
 {
+    if let None = message.get(COMMAND) {
+        return Err(GenericError::new("command not found in message"));
+    }
     let base = &connections.base;
     let ewmh = &connections.ewmh;
     let screen = connections.screen;
@@ -53,7 +56,7 @@ fn do_single_command(connections: &XCBConnections,
         window_properties.insert(active_window, prop);
     }
 
-    match message.command().as_str() {
+    match message.get(COMMAND).unwrap() {
         RESTORE => {
             match window_properties.get_mut(&active_window) {
                 Some(prop) if prop.state == State::Windowed => return Ok(()),
@@ -86,7 +89,14 @@ fn do_single_command(connections: &XCBConnections,
     Ok(())
 }
 
-fn main() -> Result<(), GenericError> {
+fn exit() {
+    // We should gracefully handle each operation so that everything gets executed
+    if let Err(e) = remove_socket_file() {
+        eprintln!("{}", e);
+    }
+}
+
+fn event_loop() -> Result<(), GenericError> {
     let mut window_properties: HashMap<xcb::xproto::Window, Properties> = HashMap::new();
     let mut connections = setup_connections()?;
 
@@ -103,22 +113,25 @@ fn main() -> Result<(), GenericError> {
         };
         let message = decode_data(&buf[0..size])?;
 
-        match message.command().as_str() {
+        match message.get(COMMAND).unwrap() {
             RESTART => {
                 connections = setup_connections()?;
                 continue;
             },
-            _ => (),
-        }
-
-        if let Err(e) = do_single_command(&connections,
-                                          &mut window_properties,
-                                          message)
-        {
-            eprintln!("{}", e);
+            QUIT => break,
+            _ => {
+                if let Err(e) = do_single_command(&connections, &mut window_properties, message) {
+                    eprintln!("{}", e);
+                }
+            },
         }
     }
+    Ok(())
+}
 
-    // remove_socket_file()?;
-    // Ok(())
+fn main() {
+    if let Err(e) = event_loop() {
+        eprintln!("{}", e);
+    }
+    exit();
 }
