@@ -1,15 +1,21 @@
 * Concept
-Create functions that resize X11 windows to cover half of the screen while keeping track of its original windowed dimensions.
-This allows us to restore the 'split-screen' window back to its original floating form.
+Create functions that resize X11 windows to cover half of the screen while
+keeping track of its original windowed dimensions.  This allows us to restore
+the 'split-screen' window back to its original floating form.
 * Considerations
-- When splitting a maximized window, we must unmaximize and retrieve the dimensions: look into where the windowed dimensions are stored.
-  - /Ammendment/: maximized windows are handled solely by the window manager, so this tool won't handle that logic.
+- When splitting a maximized window, we must unmaximize and retrieve the
+  dimensions: look into where the windowed dimensions are stored.
+  - /Amendment/: maximized windows are handled solely by the window manager, so
+    this tool won't handle that logic.
+  - /Amendment 2/: maximized windows can be requested by sending requests to a
+    EWMH compliant WM
 - Parsing the command line arguments will maintain the order of the commands
 - Exclude docks
 * Architecture
-We'll implement a *client server model* by using *unix datagram sockets* in a predetermined cache location.
-The sockets will be connectionless to reduce the overhead for single-command messages.
-Data will be formatted using D-Bus's binary format.
+We'll implement a *client server model* by using *unix datagram sockets* in a
+predetermined cache location.  The sockets will be connectionless to reduce the
+overhead for single-command messages.  Data will be formatted using D-Bus's
+binary format.
 * Niceties
 - Check for existing server process
 - Cleanup sockets after termination or interrupt
@@ -18,6 +24,7 @@ Data will be formatted using D-Bus's binary format.
   - Round float up if it'll reach the end of desktop
 - Maintain an indefinite amount of user defined custom states
   - Use a state stack
+  - Maintain a hashmap of profile names to dimensions
 - Periodically clean up hash table
 - Option to reset XCB connection
 - Select window based on id, window name, window title, etc.
@@ -60,13 +67,14 @@ Data will be formatted using D-Bus's binary format.
 - x11::xlib::XWindowAttributes
 * Steps
 ** DONE Get window geometry
-Currently we're *getting* window geometry for the guest app's position ignoring decorations.
-The issue is that *resizing* windows takes decorations into account.
-For some reason, window's *y relative to parent* is 2 times *left extent*.
-Window's *x relative to parent* is 2 time either top or bottom extent.
-We could calculate window's true x and y positions by doing =x_true = x_rel - 2 * top_extent=.
-Calculating dimensions looks like =height_true = top_extent + bottom_extent + height_geo=.
-The parent window is *work-area-height* pixels offset from the root window.
+Currently we're *getting* window geometry for the guest app's position ignoring
+decorations.  The issue is that *resizing* windows takes decorations into account.
+For some reason, window's *y relative to parent* is 2 times *left extent*.  Window's
+*x relative to parent* is 2 time either top or bottom extent.  We could calculate
+window's true x and y positions by doing =x_true = x_rel - 2 * top_extent=.
+Calculating dimensions looks like =height_true = top_extent + bottom_extent + 
+height_geo=.  The parent window is *work-area-height* pixels offset from the root
+window.
 ** DONE Resize window to some fixed size
 ** AXED Get screen attributes
 ** DONE Get desktop work area
@@ -88,12 +96,24 @@ struct Message {
 #+end_src
 ** DONE Restore window size
 ** DONE Create command line options
-** PROG Handle program termination
-Use Tokio and signal-hook for async signal handling
 ** DONE Experiment with maximized behaviour
 I can't visually modify the window dimensions of an Openbox maximized window
 ** DONE Reset XCB connection option
 ** DONE Handle maximized window
+** PROG Multi monitors
+xcb_query_pointer_reply tells us if the pointer is one the same screen as the
+provided window. We could loop on all the available screens, pass in the root
+windows of each (since we know how to do this) and retrieve the current
+screen. Afterwards, we can retrieve the active window using this screen.
+
+Code's been implemented and seems to work for a single monitor. I haven't tested
+it against multi monitor setups yet. There's also the question if getting the
+pointer is the best approach: my concern however with grabbing the first found
+WM_STATE_ACTIVE window is that one "active" window may be present for each
+screen.
+** TODO Window dimension profiles
+** PROG Handle program termination
+Use Tokio and signal-hook for async signal handling
 ** TODO Other niceties?
 * C code to reference
 #+begin_src c

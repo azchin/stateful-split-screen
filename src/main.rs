@@ -37,18 +37,19 @@ fn do_single_command(connections: &XCBConnections,
     }
     let base = &connections.base;
     let ewmh = &connections.ewmh;
-    let screen = connections.screen;
+    let _default_screen = connections.screen;
+    let (active_window, screen) = get_active_window(base,ewmh)?;
+    let (window_x, window_y, window_width, window_height) = get_geometry(base, ewmh, active_window)?;
     let (work_x, work_y, work_width, work_height) = get_work_area(ewmh, screen)?;
     let (work_x, work_y, work_width, work_height) = (work_x as i16,
                                                      work_y as i16,
                                                      work_width as u16,
                                                      work_height as u16);
     let half_width = work_width / 2;
-    let active_window = get_active_window(ewmh, screen)?;
-    let (window_x, window_y, window_width, window_height) = get_geometry(base, ewmh, active_window)?;
 
     #[cfg(feature = "debug")]
-    println!("{} {} {} {} {} {}", active_window, message, window_x, window_y, window_width, window_height);
+    println!("id: {}, cmd: {}, x: {}, y: {}, width: {}, height: {}",
+             active_window, message.get(COMMAND).unwrap(), window_x, window_y, window_width, window_height);
 
     let window_prop = window_properties.get(&active_window);
     if window_prop.is_none() || window_prop.unwrap().state == State::Windowed {

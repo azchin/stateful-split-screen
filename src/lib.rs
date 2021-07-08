@@ -144,7 +144,7 @@ pub mod xcb {
         pub screen: i32,
     }
     
-    pub fn get_default_root_window(base: &base::Connection, screen: i32) -> Result<xproto::Window, GenericError> {
+    pub fn get_screen_root_window(base: &base::Connection, screen: i32) -> Result<xproto::Window, GenericError> {
         let setup = base.get_setup();
         match setup.roots().nth(screen as usize) {
             Some(screen) => Ok(screen.root()),
@@ -152,7 +152,25 @@ pub mod xcb {
         }
     }
 
-    pub fn get_active_window(ewmh: &ewmh::Connection, screen: i32) -> Result<xproto::Window, GenericError> {
+    pub fn get_active_window(base: &base::Connection, ewmh: &ewmh::Connection) -> Result<(xproto::Window, i32), GenericError> {
+        let setup = base.get_setup();
+        for (screen_idx, screen) in setup.roots().enumerate() {
+            match xproto::query_pointer(base, screen.root()).get_reply() {
+                Ok(reply) => {
+                    if reply.same_screen() {
+                        #[cfg(feature = "debug")]
+                        println!("Screen: {}", screen_idx);
+                        let screen_i32 = screen_idx as i32;
+                        return Ok((get_screen_active_window(ewmh, screen_i32)?, screen_i32));
+                    }
+                },
+                Err(_) => return Err(GenericError::new("query pointer")),
+            }
+        }
+        Err(GenericError::new("couldn't find active window or screen"))
+    }
+
+    pub fn get_screen_active_window(ewmh: &ewmh::Connection, screen: i32) -> Result<xproto::Window, GenericError> {
         let window_cookie = ewmh::get_active_window(ewmh, screen);
         let window_res = window_cookie.get_reply();
         match window_res {
