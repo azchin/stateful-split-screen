@@ -14,12 +14,14 @@ fn main() -> Result<(), GenericError> {
                     .help("Resize the window to cover the left half of the desktop"))
         .subcommand(SubCommand::with_name(SPLITRIGHT)
                     .help("Resize the window to cover the right half of the desktop"))
+        .subcommand(SubCommand::with_name(MAXIMIZE)
+                    .help("Maximize the window"))
         .subcommand(SubCommand::with_name(RESTART)
                     .help("Restart the server"))
         .subcommand(SubCommand::with_name(QUIT)
                     .help("Shutdown the server"))
         .get_matches();
-    let commands_strings = [RESTORE, SPLITLEFT, SPLITRIGHT, RESTART, QUIT];
+    let commands_strings = [RESTORE, SPLITLEFT, SPLITRIGHT, MAXIMIZE, RESTART, QUIT];
     let command = commands_strings.iter().find(|cmd| matches.subcommand_matches(cmd).is_some()).unwrap();
     let socket = match UnixDatagram::unbound() {
         Ok(sock) => sock,

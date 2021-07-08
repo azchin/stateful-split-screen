@@ -28,6 +28,7 @@ pub mod commands {
     pub const RESTORE: &str = "restore";
     pub const SPLITLEFT: &str = "splitleft";
     pub const SPLITRIGHT: &str = "splitright";
+    pub const MAXIMIZE: &str = "maximize";
     pub const RESTART: &str = "restart";
     pub const QUIT: &str = "quit";
 }
@@ -143,7 +144,7 @@ pub mod xcb {
         pub screen: i32,
     }
     
-    pub fn get_root_window(base: &base::Connection, screen: i32) -> Result<xproto::Window, GenericError> {
+    pub fn get_default_root_window(base: &base::Connection, screen: i32) -> Result<xproto::Window, GenericError> {
         let setup = base.get_setup();
         match setup.roots().nth(screen as usize) {
             Some(screen) => Ok(screen.root()),
@@ -164,6 +165,14 @@ pub mod xcb {
         let query_cookie = xproto::query_tree(base, window);
         match query_cookie.get_reply() {
             Ok(tree) => Ok(tree.parent()),
+            Err(_) => Err(GenericError::new("query tree")),
+        }
+    }
+
+    pub fn get_root_window(base: &base::Connection, window: xproto::Window) -> Result<xproto::Window, GenericError> {
+        let query_cookie = xproto::query_tree(base, window);
+        match query_cookie.get_reply() {
+            Ok(tree) => Ok(tree.root()),
             Err(_) => Err(GenericError::new("query tree")),
         }
     }
@@ -249,6 +258,38 @@ pub mod xcb {
         match cookie.request_check() {
             Ok(_) => Ok(()),
             Err(_) => Err(GenericError::new("move and resize window")),
+        }
+    }
+
+    pub fn ewmh_restore(ewmh: &ewmh::Connection, window: xproto::Window, screen: i32) -> Result<(), GenericError> {
+        let cookie = ewmh::request_change_wm_state(
+            ewmh,
+            screen,
+            window,
+            ewmh::STATE_REMOVE,
+            ewmh.WM_STATE_MAXIMIZED_HORZ(),
+            ewmh.WM_STATE_MAXIMIZED_VERT(),
+            ewmh::CLIENT_SOURCE_TYPE_NORMAL, // also _NONE and _OTHER
+        );
+        match cookie.request_check() {
+            Ok(_) => Ok(()),
+            Err(_) => Err(GenericError::new("maximize wm_state send message")),
+        }
+    }
+
+    pub fn ewmh_maximize(ewmh: &ewmh::Connection, window: xproto::Window, screen: i32) -> Result<(), GenericError> {
+        let cookie = ewmh::request_change_wm_state(
+            ewmh,
+            screen,
+            window,
+            ewmh::STATE_ADD,
+            ewmh.WM_STATE_MAXIMIZED_HORZ(),
+            ewmh.WM_STATE_MAXIMIZED_VERT(),
+            ewmh::CLIENT_SOURCE_TYPE_NORMAL,
+        );
+        match cookie.request_check() {
+            Ok(_) => Ok(()),
+            Err(_) => Err(GenericError::new("maximize wm_state send message")),
         }
     }
 

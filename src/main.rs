@@ -12,6 +12,7 @@ enum State {
     Windowed,
     SplitLeft,
     SplitRight,
+    Maximized,
 }
 
 struct Dimensions {
@@ -58,6 +59,7 @@ fn do_single_command(connections: &XCBConnections,
 
     match message.get(COMMAND).unwrap() {
         RESTORE => {
+            ewmh_restore(ewmh, active_window, screen)?; // Could check for maximized
             match window_properties.get_mut(&active_window) {
                 Some(prop) if prop.state == State::Windowed => return Ok(()),
                 Some(prop) => {
@@ -69,6 +71,7 @@ fn do_single_command(connections: &XCBConnections,
             };
         },
         SPLITLEFT => {
+            ewmh_restore(ewmh, active_window, screen)?;
             match window_properties.get_mut(&active_window) {
                 Some(prop) if prop.state == State::SplitLeft => return Ok(()),
                 Some(prop) => prop.state = State::SplitLeft,
@@ -77,12 +80,19 @@ fn do_single_command(connections: &XCBConnections,
             move_resize(base, ewmh, active_window, work_x, work_y, half_width, work_height)?;
         },
         SPLITRIGHT => {
+            ewmh_restore(ewmh, active_window, screen)?;
             match window_properties.get_mut(&active_window) {
                 Some(prop) if prop.state == State::SplitRight => return Ok(()),
                 Some(prop) => prop.state = State::SplitRight,
                 None => return Err(GenericError::new("cannot find active window in memory")),
             }
             move_resize(base, ewmh, active_window, half_width as i16, work_y, half_width, work_height)?;
+        },
+        MAXIMIZE => {
+            if let Some(prop) = window_properties.get_mut(&active_window) {
+                prop.state = State::Maximized;
+            }
+            ewmh_maximize(ewmh, active_window, screen)?;
         },
         _ => return Err(GenericError::new("invalid command")),
     }

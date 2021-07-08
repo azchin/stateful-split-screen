@@ -93,9 +93,10 @@ Use Tokio and signal-hook for async signal handling
 ** DONE Experiment with maximized behaviour
 I can't visually modify the window dimensions of an Openbox maximized window
 ** DONE Reset XCB connection option
+** DONE Handle maximized window
 ** TODO Other niceties?
 * C code to reference
-  #+begin_src c
+#+begin_src c
 // https://gist.github.com/borneq/abd430d491a449c08a25
 xcb_intern_atom_cookie_t cookie = xcb_intern_atom ( connection, 0, strlen ( "_MOTIF_WM_HINTS" ), "_MOTIF_WM_HINTS" );
 xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply ( connection, cookie, NULL );
@@ -191,5 +192,5 @@ default_screen = screen_of_display (c, screen_default_nbr);
 
 /* default_screen contains now the default root window, or a NULL window if no screen is found */
 
-  #+end_src
+#+end_src
   
