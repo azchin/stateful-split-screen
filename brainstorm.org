@@ -1,3 +1,4 @@
+#+title: Stateful Split-Screen Brainstorming
 * Concept
 Create functions that resize X11 windows to cover half of the screen while
 keeping track of its original windowed dimensions.  This allows us to restore
