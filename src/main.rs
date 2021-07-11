@@ -28,10 +28,11 @@ struct Properties {
     dimensions: Dimensions,
 }
 
-fn do_single_command(connections: &XCBConnections,
-                     window_properties: &mut HashMap<xcb::xproto::Window, Properties>,
-                     message: Message,)
-                     -> Result<(), GenericError>
+fn do_single_command(
+    connections: &XCBConnections,
+    window_properties: &mut HashMap<xcb::xproto::Window, Properties>,
+    message: Message,
+) -> Result<(), GenericError>
 {
     if let None = message.get(COMMAND) {
         return Err(GenericError::new("command not found in message"));
