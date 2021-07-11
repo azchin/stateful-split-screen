@@ -15,6 +15,7 @@ enum State {
     Maximized,
 }
 
+#[derive(PartialEq)]
 struct Dimensions {
     x: i16,
     y: i16,
@@ -51,13 +52,51 @@ fn do_single_command(connections: &XCBConnections,
     println!("id: {}, cmd: {}, x: {}, y: {}, width: {}, height: {}",
              active_window, message.get(COMMAND).unwrap(), window_x, window_y, window_width, window_height);
 
-    let window_prop = window_properties.get(&active_window);
-    if window_prop.is_none() || window_prop.unwrap().state == State::Windowed {
+    // Checks the current state of the window and stores dimensions if necessary
+    let is_windowed_state = window_properties.get(&active_window).is_none()
+        || window_properties.get(&active_window).unwrap().state == State::Windowed;
+    if is_windowed_state {
+        let dim = Dimensions{x: window_x, y: window_y, width: window_width, height: window_height};
+        let prop = Properties{state: State::Windowed, dimensions:dim};
+        window_properties.insert(active_window, prop);
+    }
+    // Checks for manual resizes on a managed split window
+    let current_dimensions = Dimensions {
+        x: window_x,
+        y: window_y,
+        width: window_width,
+        height: window_height,
+    };
+    let splitleft_dimensions = Dimensions {
+        x: work_x,
+        y: work_y,
+        width: half_width, 
+        height: work_height,
+    };
+    let splitright_dimensions = Dimensions{
+        x: half_width as i16,
+        y: work_y,
+        width: half_width, 
+        height: work_height,
+    };
+    let has_splitleft_discrepancy = window_properties.get(&active_window).is_some()
+        && window_properties.get(&active_window).unwrap().state == State::SplitLeft
+        && current_dimensions != splitleft_dimensions;
+    if has_splitleft_discrepancy {
+        let dim = Dimensions{x: window_x, y: window_y, width: window_width, height: window_height};
+        let prop = Properties{state: State::Windowed, dimensions:dim};
+        window_properties.insert(active_window, prop);
+    }
+    let has_splitright_discrepancy = window_properties.get(&active_window).is_some()
+        && window_properties.get(&active_window).unwrap().state == State::SplitRight
+        && current_dimensions != splitright_dimensions;
+    if has_splitright_discrepancy {
         let dim = Dimensions{x: window_x, y: window_y, width: window_width, height: window_height};
         let prop = Properties{state: State::Windowed, dimensions:dim};
         window_properties.insert(active_window, prop);
     }
 
+    // Process the command and alter the cached window state
     match message.get(COMMAND).unwrap() {
         RESTORE => {
             ewmh_restore(ewmh, active_window, screen)?; // Could check for maximized
@@ -74,7 +113,6 @@ fn do_single_command(connections: &XCBConnections,
         SPLITLEFT => {
             ewmh_restore(ewmh, active_window, screen)?;
             match window_properties.get_mut(&active_window) {
-                Some(prop) if prop.state == State::SplitLeft => return Ok(()),
                 Some(prop) => prop.state = State::SplitLeft,
                 None => return Err(GenericError::new("cannot find active window in memory")),
             }
@@ -83,7 +121,6 @@ fn do_single_command(connections: &XCBConnections,
         SPLITRIGHT => {
             ewmh_restore(ewmh, active_window, screen)?;
             match window_properties.get_mut(&active_window) {
-                Some(prop) if prop.state == State::SplitRight => return Ok(()),
                 Some(prop) => prop.state = State::SplitRight,
                 None => return Err(GenericError::new("cannot find active window in memory")),
             }
