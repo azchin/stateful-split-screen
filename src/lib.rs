@@ -247,7 +247,7 @@ pub mod xcb {
         }
     }
 
-    pub fn get_work_area(ewmh: &ewmh::Connection, screen: i32) -> Result<(u32, u32, u32, u32), GenericError> {
+    pub fn get_work_area(ewmh: &ewmh::Connection, screen: i32) -> Result<(i16, i16, u16, u16), GenericError> {
         let area_cookie = ewmh::get_work_area(ewmh, screen);
         let areas = match area_cookie.get_reply() {
             Ok(res) => res,
@@ -255,7 +255,12 @@ pub mod xcb {
         };
         let idx = get_desktop_idx(ewmh, screen)? as usize;
         match areas.work_area().get(idx) {
-            Some(area) => Ok((area.x(), area.y(), area.width(), area.height())),
+            Some(area) => Ok((
+                area.x() as i16,
+                area.y() as i16,
+                area.width() as u16,
+                area.height() as u16
+            )),
             None => Err(GenericError::new("couldn't find work area for screen")),
         }
     }

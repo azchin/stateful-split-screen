@@ -15,7 +15,7 @@ enum State {
     Maximized,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 struct Dimensions {
     x: i16,
     y: i16,
@@ -28,12 +28,27 @@ struct Properties {
     dimensions: Dimensions,
 }
 
+fn conditionally_store_dimensions(
+    active_window: xcb::xproto::Window,
+    window_properties: &mut HashMap<xcb::xproto::Window, Properties>,
+    current_dimensions: Dimensions,
+    correct_dimensions: Dimensions,
+    state: State
+) {
+    if window_properties.get(&active_window).is_some()
+        && window_properties.get(&active_window).unwrap().state == state
+        && current_dimensions != correct_dimensions
+    {
+        let prop = Properties{state: State::Windowed, dimensions: current_dimensions};
+        window_properties.insert(active_window, prop);
+    }
+}
+
 fn do_single_command(
     connections: &XCBConnections,
     window_properties: &mut HashMap<xcb::xproto::Window, Properties>,
     message: Message,
-) -> Result<(), GenericError>
-{
+) -> Result<(), GenericError> {
     if let None = message.get(COMMAND) {
         return Err(GenericError::new("command not found in message"));
     }
@@ -43,10 +58,6 @@ fn do_single_command(
     let (active_window, screen) = get_active_window(base,ewmh)?;
     let (window_x, window_y, window_width, window_height) = get_geometry(base, ewmh, active_window)?;
     let (work_x, work_y, work_width, work_height) = get_work_area(ewmh, screen)?;
-    let (work_x, work_y, work_width, work_height) = (work_x as i16,
-                                                     work_y as i16,
-                                                     work_width as u16,
-                                                     work_height as u16);
     let half_width = work_width / 2;
 
     #[cfg(feature = "debug")]
@@ -74,35 +85,27 @@ fn do_single_command(
         width: half_width, 
         height: work_height,
     };
-    let splitright_dimensions = Dimensions{
+    let splitright_dimensions = Dimensions {
         x: half_width as i16,
         y: work_y,
         width: half_width, 
         height: work_height,
     };
-    let has_splitleft_discrepancy = window_properties.get(&active_window).is_some()
-        && window_properties.get(&active_window).unwrap().state == State::SplitLeft
-        && current_dimensions != splitleft_dimensions;
-    if has_splitleft_discrepancy {
-        let dim = Dimensions{x: window_x, y: window_y, width: window_width, height: window_height};
-        let prop = Properties{state: State::Windowed, dimensions:dim};
-        window_properties.insert(active_window, prop);
-    }
-    let has_splitright_discrepancy = window_properties.get(&active_window).is_some()
-        && window_properties.get(&active_window).unwrap().state == State::SplitRight
-        && current_dimensions != splitright_dimensions;
-    if has_splitright_discrepancy {
-        let dim = Dimensions{x: window_x, y: window_y, width: window_width, height: window_height};
-        let prop = Properties{state: State::Windowed, dimensions:dim};
-        window_properties.insert(active_window, prop);
-    }
+    let maximized_dimensions = Dimensions {
+        x: work_x,
+        y: work_y,
+        width: work_width, 
+        height: work_height,
+    };
+    conditionally_store_dimensions(active_window, window_properties, current_dimensions.clone(), splitleft_dimensions, State::SplitLeft);
+    conditionally_store_dimensions(active_window, window_properties, current_dimensions.clone(), splitright_dimensions, State::SplitRight);
+    conditionally_store_dimensions(active_window, window_properties, current_dimensions.clone(), maximized_dimensions, State::Maximized);
 
     // Process the command and alter the cached window state
     match message.get(COMMAND).unwrap() {
         RESTORE => {
-            ewmh_restore(ewmh, active_window, screen)?; // Could check for maximized
+            ewmh_restore(ewmh, active_window, screen)?;
             match window_properties.get_mut(&active_window) {
-                Some(prop) if prop.state == State::Windowed => return Ok(()),
                 Some(prop) => {
                     prop.state = State::Windowed;
                     let dim = &prop.dimensions;
