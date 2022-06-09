@@ -55,7 +55,7 @@ fn do_single_command(
     let base = &connections.base;
     let ewmh = &connections.ewmh;
     let _default_screen = connections.screen;
-    let (active_window, screen) = get_active_window(base,ewmh)?;
+    let (active_window, screen) = get_active_window(base, ewmh)?;
     let (window_x, window_y, window_width, window_height) = get_geometry(base, ewmh, active_window)?;
     let (work_x, work_y, work_width, work_height) = get_work_area(ewmh, screen)?;
     let half_width = work_width / 2;
@@ -65,8 +65,9 @@ fn do_single_command(
              active_window, message.get(COMMAND).unwrap(), window_x, window_y, window_width, window_height);
 
     // Checks the current state of the window and stores dimensions if necessary
-    let is_windowed_state = window_properties.get(&active_window).is_none()
-        || window_properties.get(&active_window).unwrap().state == State::Windowed;
+    let is_windowed_state = ( window_properties.get(&active_window).is_none()
+                              || window_properties.get(&active_window).unwrap().state == State::Windowed )
+        && message.get(COMMAND).unwrap() != SAVE;
     if is_windowed_state {
         let dim = Dimensions{x: window_x, y: window_y, width: window_width, height: window_height};
         let prop = Properties{state: State::Windowed, dimensions:dim};
@@ -91,15 +92,16 @@ fn do_single_command(
         width: half_width, 
         height: work_height,
     };
-    let maximized_dimensions = Dimensions {
+    let _maximized_dimensions = Dimensions {
         x: work_x,
         y: work_y,
         width: work_width, 
         height: work_height,
     };
+    // TODO fix work area dimensions for extended monitor setup
     conditionally_store_dimensions(active_window, window_properties, current_dimensions.clone(), splitleft_dimensions, State::SplitLeft);
     conditionally_store_dimensions(active_window, window_properties, current_dimensions.clone(), splitright_dimensions, State::SplitRight);
-    conditionally_store_dimensions(active_window, window_properties, current_dimensions.clone(), maximized_dimensions, State::Maximized);
+    // conditionally_store_dimensions(active_window, window_properties, current_dimensions.clone(), maximized_dimensions, State::Maximized);
 
     // Process the command and alter the cached window state
     match message.get(COMMAND).unwrap() {
@@ -135,6 +137,10 @@ fn do_single_command(
                 prop.state = State::Maximized;
             }
             ewmh_maximize(ewmh, active_window, screen)?;
+        },
+        SAVE => {
+            let prop = Properties{state: State::Windowed, dimensions: current_dimensions};
+            window_properties.insert(active_window, prop);
         },
         _ => return Err(GenericError::new("invalid command")),
     }

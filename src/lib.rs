@@ -30,6 +30,7 @@ pub mod commands {
     pub const SPLITRIGHT: &str = "splitright";
     pub const MAXIMIZE: &str = "maximize";
     pub const RESTART: &str = "restart";
+    pub const SAVE: &str = "save";
     pub const QUIT: &str = "quit";
 }
 
