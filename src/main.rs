@@ -67,7 +67,7 @@ fn do_single_command(
     // Checks the current state of the window and stores dimensions if necessary
     let is_windowed_state = ( window_properties.get(&active_window).is_none()
                               || window_properties.get(&active_window).unwrap().state == State::Windowed )
-        && message.get(COMMAND).unwrap() != SAVE;
+        && message.get(COMMAND).unwrap() != RESTORE;
     if is_windowed_state {
         let dim = Dimensions{x: window_x, y: window_y, width: window_width, height: window_height};
         let prop = Properties{state: State::Windowed, dimensions:dim};
