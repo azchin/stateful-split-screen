@@ -12,6 +12,10 @@ the 'split-screen' window back to its original floating form.
     EWMH compliant WM
 - Parsing the command line arguments will maintain the order of the commands
 - Exclude docks
+* Updates
+- xcb::proto becomes xcb::x
+- replace xcb​_util with xcb​_wm
+- Use atoms/requests instead of function calls
 * Architecture
 We'll implement a *client server model* by using *unix datagram sockets* in a
 predetermined cache location.  The sockets will be connectionless to reduce the
